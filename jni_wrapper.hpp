@@ -102,7 +102,7 @@ struct JNIReturnConverter<void> {
 };
 
 template<typename Func>
-struct FuncTraits;
+struct FuncTraits : public FuncTraits<decltype(&Func::operator())> {};
 
 template<typename Ret, typename... Args>
 struct FuncTraits<Ret(*)(Args...)> {
@@ -113,11 +113,21 @@ struct FuncTraits<Ret(*)(Args...)> {
     using ArgType = typename std::tuple_element<I, ArgTuple>::type;
 };
 
-template<typename FuncPtrT, FuncPtrT FuncPtr>
+template<typename ClassType, typename Ret, typename... Args>
+struct FuncTraits<Ret(ClassType::*)(Args...) const> {
+    using ReturnType = Ret;
+    using ArgTuple = std::tuple<Args...>;
+    static constexpr size_t ArgCount = sizeof...(Args);
+
+    template<size_t I>
+    using ArgType = typename std::tuple_element<I, ArgTuple>::type;
+};
+
+template<typename FuncPtrT>
 struct JNIWrapper;
 
-template<typename Ret, typename... Args, Ret(*FuncPtr)(Args...)>
-struct JNIWrapper<Ret(*)(Args...), FuncPtr> {
+template<typename Ret, typename... Args>
+struct JNIWrapper<Ret(*)(Args...)> {
 private:
     using ConvertedArgs = std::tuple<ConvertedArg<Args, typename JNITypeConverter<Args>::JNIType>...>;
 
@@ -149,20 +159,21 @@ private:
     }
 
 public:
-    static typename JNIReturnConverter<Ret>::JNIType call(
-        JNIEnv* env, jobject obj,
+    template<typename Callable>
+    static auto call(
+        Callable&& func, JNIEnv* env, jobject obj,
         typename JNITypeConverter<Args>::JNIType... rawArgs
-    ) {
+    ) -> typename JNIReturnConverter<Ret>::JNIType {
         ConvertedArgs convertedArgs = convertArgs(env, rawArgs...);
         auto callArgs = getCallArgs(convertedArgs);
 
         if constexpr (std::is_void_v<Ret>) {
-            std::apply(FuncPtr, callArgs);
+            std::apply(func, callArgs);
             releaseResourcesImpl(env, convertedArgs, std::index_sequence_for<Args...>{});
             return;
         }
         else {
-            auto result = std::apply(FuncPtr, callArgs);
+            auto result = std::apply(func, callArgs);
             releaseResourcesImpl(env, convertedArgs, std::index_sequence_for<Args...>{});
             return JNIReturnConverter<Ret>::toJNI(env, result);
         }
@@ -180,5 +191,5 @@ public:
 #define NEKO_JNI_FUNC(func, _FUNCTION_NAME, N) \
 extern "C" JNIEXPORT typename JNIReturnConverter<typename FuncTraits<decltype(&func)>::ReturnType>::JNIType JNICALL \
 _FUNCTION_NAME(JNIEnv* env, jobject obj, NEKO_PP_CALL_PARAMS(NEKO_JNI_PARAMS_GEN, func, N)) {\
-return JNIWrapper<decltype(&func), &func>::call(env, obj, NEKO_PP_PARAMS(arg, N));\
+return JNIWrapper<decltype(&func)>::call(func, env, obj, NEKO_PP_PARAMS(arg, N));\
 }
