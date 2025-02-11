@@ -1,11 +1,10 @@
 
 #if (!defined NEKO_PP_FOR_EACH || !defined NEKO_PP_PARAMS)
 
-
 // 横向迭代, NEKO_PP_PARAMS(x, 3) => x1, x2, x3
 
 #define NEKO_PP_PARAMS_0(x)
-#define NEKO_PP_PARAMS_1(x) x##1
+#define NEKO_PP_PARAMS_1(x) , x##1
 #define NEKO_PP_PARAMS_2(x) NEKO_PP_PARAMS_1(x), x##2
 #define NEKO_PP_PARAMS_3(x) NEKO_PP_PARAMS_2(x), x##3
 #define NEKO_PP_PARAMS_4(x) NEKO_PP_PARAMS_3(x), x##4
@@ -26,7 +25,7 @@
 // 横向迭代 NEKO_PP_CALL_PARAMS(f, func, 3) => f(1), f(2), f(3)
 
 #define NEKO_PP_CALL_PARAMS_0(f, func)
-#define NEKO_PP_CALL_PARAMS_1(f, func) f(func, 1)
+#define NEKO_PP_CALL_PARAMS_1(f, func) , f(func, 1)
 #define NEKO_PP_CALL_PARAMS_2(f, func) NEKO_PP_CALL_PARAMS_1(f, func), f(func, 2)
 #define NEKO_PP_CALL_PARAMS_3(f, func) NEKO_PP_CALL_PARAMS_2(f, func), f(func, 3)
 #define NEKO_PP_CALL_PARAMS_4(f, func) NEKO_PP_CALL_PARAMS_3(f, func), f(func, 4)
